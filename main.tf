@@ -4,6 +4,7 @@ variable "email" {}
 variable "dns_record" {}
 variable "micromdm_prefix" {}
 variable "micromdm_api_key" {}
+variable "mdmdirector_api_key" {}
 
 # Configure the DigitalOcean Provider
 provider "digitalocean" {
@@ -11,14 +12,30 @@ provider "digitalocean" {
   token = var.do_token
 }
 
-data "template_file" "bootstrap-micromdm" {
-  template = "${file("scripts/bootstrap_micromdm.sh.tpl")}"
-
-  vars = {
-    email           = var.email
-    full_dns_record = "${var.micromdm_prefix}.${var.dns_record}"
-  }
+# create postgres cluster
+resource "digitalocean_database_cluster" "micromdm-db-cluster" {
+  name       = "micromdm-postgres-cluster"
+  engine     = "pg"
+  version    = "11"
+  size       = "db-s-1vcpu-1gb"
+  region     = "nyc1"
+  node_count = 1
 }
+
+# create database for mdmdirector
+resource "digitalocean_database_db" "mdmdirector_database" {
+  cluster_id = digitalocean_database_cluster.micromdm-db-cluster.id
+  name       = "mdmdirector"
+}
+
+# data "template_file" "bootstrap-micromdm" {
+#   template = "${file("scripts/bootstrap_micromdm.sh.tpl")}"
+
+#   vars = {
+#     email           = var.email
+#     //full_dns_record = "${var.micromdm_prefix}.${var.dns_record}"
+#   }
+# }
 
 data "template_file" "micromdm-service" {
   template = "${file("scripts/systemd/micromdm.service.tpl")}"
@@ -26,6 +43,21 @@ data "template_file" "micromdm-service" {
   vars = {
     full_dns_record = "${var.micromdm_prefix}.${var.dns_record}"
     micromdm_api_key = var.micromdm_api_key
+  }
+}
+
+data "template_file" "mdmdirector-service" {
+  template = "${file("scripts/systemd/mdmdirector.service.tpl")}"
+
+  vars = {
+    db_username = digitalocean_database_cluster.micromdm-db-cluster.user
+    db_password = digitalocean_database_cluster.micromdm-db-cluster.password
+    db_host = digitalocean_database_cluster.micromdm-db-cluster.host
+    db_port = digitalocean_database_cluster.micromdm-db-cluster.port
+    db_name = digitalocean_database_db.mdmdirector_database.name
+    micromdm_api_key = var.micromdm_api_key
+    micromdm_server_url = "${var.micromdm_prefix}.${var.dns_record}"
+    mdmdirector_api_key = var.mdmdirector_api_key
   }
 }
 
@@ -79,13 +111,21 @@ resource "null_resource" "provision" {
     }
 
     inline = [
-      "cat <<FILE1 > bootstrap_micromdm.sh",
-      "${data.template_file.bootstrap-micromdm.rendered}",
-      "FILE1",
-      "/bin/bash bootstrap_micromdm.sh",
+      "sudo yum install wget -y",
+      "wget https://dl.eff.org/certbot-auto",
+      "mv ./certbot-auto /usr/local/bin/certbot-auto",
+      "sudo chown root /usr/local/bin/certbot-auto",
+      "sudo chmod 0755 /usr/local/bin/certbot-auto",
+      "wget https://github.com/micromdm/micromdm/releases/download/v1.7.1/micromdm_v1.7.1.zip",
+      "mkdir micromdm_repo",
+      "wget -O /usr/local/bin/mdmdirector https://github.com/mdmdirector/mdmdirector/releases/download/v0.0.7/mdmdirector-linux",
+      "chmod 755 /usr/local/bin/mdmdirector",
       "cat <<FILE2 > /usr/lib/systemd/system/micromdm.service",
       "${data.template_file.micromdm-service.rendered}",
       "FILE2",
+      "cat <<FILE3 > /usr/lib/systemd/system/mdmdirector.service",
+      "${data.template_file.mdmdirector-service.rendered}",
+      "FILE3",
 
       "/usr/local/bin/certbot-auto --standalone certonly -n -d ${var.micromdm_prefix}.${var.dns_record} --agree-tos --email ${var.email}",
       "rm -rf /usr/local/bin/build/*",
@@ -93,24 +133,12 @@ resource "null_resource" "provision" {
       "mv /usr/local/bin/build/linux/micromdm /usr/local/bin/micromdm",
       "systemctl daemon-reload",
       "systemctl enable micromdm.service",
-      "systemctl restart micromdm.service"
+      "systemctl restart micromdm.service",
+
+      "systemctl daemon-reload",
+      "systemctl enable mdmdirector.service",
+      "systemctl restart mdmdirector.service",
     ]
   }
 
 }
-
-# # create postgres cluster
-# resource "digitalocean_database_cluster" "micromdm-cluster" {
-#   name       = "micromdm-postgres-cluster"
-#   engine     = "pg"
-#   version    = "11"
-#   size       = "db-s-1vcpu-1gb"
-#   region     = "nyc1"
-#   node_count = 1
-# }
-
-# # create database for mdmdirector
-# resource "digitalocean_database_db" "mdmdirector_database" {
-#   cluster_id = digitalocean_database_cluster.micromdm-cluster.id
-#   name       = "mdmdirector"
-# }
