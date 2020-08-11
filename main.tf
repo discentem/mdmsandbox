@@ -28,15 +28,7 @@ resource "digitalocean_database_db" "mdmdirector_database" {
   name       = "mdmdirector"
 }
 
-# data "template_file" "bootstrap-micromdm" {
-#   template = "${file("scripts/bootstrap_micromdm.sh.tpl")}"
-
-#   vars = {
-#     email           = var.email
-#     //full_dns_record = "${var.micromdm_prefix}.${var.dns_record}"
-#   }
-# }
-
+# template systemd config for micromdm
 data "template_file" "micromdm-service" {
   template = "${file("scripts/systemd/micromdm.service.tpl")}"
 
@@ -46,6 +38,7 @@ data "template_file" "micromdm-service" {
   }
 }
 
+# template sytemd config for mdmdirector
 data "template_file" "mdmdirector-service" {
   template = "${file("scripts/systemd/mdmdirector.service.tpl")}"
 
@@ -81,7 +74,7 @@ resource "digitalocean_droplet" "mdm-server" {
 
     connection {
       host        = digitalocean_droplet.mdm-server.ipv4_address
-      private_key = "${file("~/.ssh/do")}"
+      private_key = file("~/.ssh/do")
       timeout     = "60s"
     }
   }
@@ -95,6 +88,7 @@ resource "digitalocean_record" "micromdm-dns" {
   value  = digitalocean_droplet.mdm-server.ipv4_address
 }
 
+# provision the VM
 resource "null_resource" "provision" {
 
   depends_on = [
@@ -112,6 +106,7 @@ resource "null_resource" "provision" {
 
     inline = [
       "sudo yum install wget -y",
+      "sudo yum install git -y",
       "wget https://dl.eff.org/certbot-auto",
       "mv ./certbot-auto /usr/local/bin/certbot-auto",
       "sudo chown root /usr/local/bin/certbot-auto",
