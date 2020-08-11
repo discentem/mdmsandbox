@@ -29,4 +29,9 @@ mdmdirector_api_key = "MAKE_UP_ANOTHER_API_KEY"
 
 ```
 3. `terraform apply`
-4. Profit! 
+
+For more in depth explanation of the following steps, see https://github.com/micromdm/micromdm/blob/main/docs/user-guide/quickstart.md#configure-mdmctl
+
+4. `mdmctl config set -name production -api-token $micromdm_api_key -server-url https://mdm.domain.com`
+5. ```mdmcert upload -cert push_cert_key.p12 -private-key mdm-certificates/VendorPrivateKey.key -password $privatekey_password```
+6. Profit! 
