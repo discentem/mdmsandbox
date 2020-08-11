@@ -13,8 +13,8 @@ provider "digitalocean" {
 }
 
 # create postgres cluster
-resource "digitalocean_database_cluster" "micromdm-db-cluster" {
-  name       = "micromdm-postgres-cluster"
+resource "digitalocean_database_cluster" "mdmdirector-db-cluster" {
+  name       = "mdmdirector-postgres-cluster"
   engine     = "pg"
   version    = "11"
   size       = "db-s-1vcpu-1gb"
@@ -24,7 +24,7 @@ resource "digitalocean_database_cluster" "micromdm-db-cluster" {
 
 # create database for mdmdirector
 resource "digitalocean_database_db" "mdmdirector_database" {
-  cluster_id = digitalocean_database_cluster.micromdm-db-cluster.id
+  cluster_id = digitalocean_database_cluster.mdmdirector-db-cluster.id
   name       = "mdmdirector"
 }
 
@@ -43,10 +43,10 @@ data "template_file" "mdmdirector-service" {
   template = "${file("scripts/systemd/mdmdirector.service.tpl")}"
 
   vars = {
-    db_username = digitalocean_database_cluster.micromdm-db-cluster.user
-    db_password = digitalocean_database_cluster.micromdm-db-cluster.password
-    db_host = digitalocean_database_cluster.micromdm-db-cluster.host
-    db_port = digitalocean_database_cluster.micromdm-db-cluster.port
+    db_username = digitalocean_database_cluster.mdmdirector-db-cluster.user
+    db_password = digitalocean_database_cluster.mdmdirector-db-cluster.password
+    db_host = digitalocean_database_cluster.mdmdirector-db-cluster.host
+    db_port = digitalocean_database_cluster.mdmdirector-db-cluster.port
     db_name = digitalocean_database_db.mdmdirector_database.name
     micromdm_api_key = var.micromdm_api_key
     micromdm_server_url = "${var.micromdm_prefix}.${var.dns_record}"
@@ -69,15 +69,6 @@ resource "digitalocean_droplet" "mdm-server" {
   name   = "mdm-server"
   region = "nyc1"
   size   = "s-1vcpu-1gb"
-
-  provisioner "remote-exec" {
-
-    connection {
-      host        = digitalocean_droplet.mdm-server.ipv4_address
-      private_key = file("~/.ssh/do")
-      timeout     = "60s"
-    }
-  }
 }
 
 # Setup Micromdm subdomain
