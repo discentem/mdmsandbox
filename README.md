@@ -1,12 +1,17 @@
+## What is this? 
+
+Terraform config for open-source mdm (micromdm/mdmdirector) with letsencrypt, systemd, and dns
+
 ## Disclaimer
 
 This should not be considered secure by default or production ready. 
 
 Various modifications should be made, such as: 
-- Verifying the authenticity of downloads with hash/signing or using a proper, internal package management or build system
-- mdmdirector password could be generated on the VM during provisioning or retrieved from a Secret Store like Vault
+- Verifying the authenticity of downloads by sha256 hash/signing certificate or by using a proper, internal package management or build system
+- Terraform state should be moved to a remote backend for security. See https://www.terraform.io/docs/state/sensitive-data.html for more information.
+- `mdmdirector_api_password` could be generated on the VM during provisioning or retrieved from a secret store like Vault instead being provided as a terraform static variable.
 - VM provisioning should be done via user-data/cloud-init and configuration management instead of a null_resource + remote-exec. Hashicorp states that user-data is a best practice and is preferred over remote-exec.
-- TLS certificate and private key should be retrieved from a secure, external source (again Vault) to avoid hitting LetsEncrypt rate limits. If you attempt to request a brand new certificate for the same domain more than ~3 times, the operation will fail. 
+- TLS certificate and private key should be retrieved from a secure, external source (again Vault) to avoid hitting LetsEncrypt rate limits: if you attempt to request a brand new certificate for the same domain more than ~3 times, the operation will fail. 
 
 ## Getting started
 
