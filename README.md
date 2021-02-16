@@ -4,7 +4,7 @@ Terraform config for open-source mdm (micromdm/mdmdirector) with letsencrypt, sy
 
 ## Disclaimer / Future Improvements
 
-This should not be considered secure by default or production ready. 
+**This should not be considered secure by default or production ready.**
 
 Various modifications should be made, such as: 
 - Verifying the authenticity of downloads by sha256 hash/signing certificate or by using a proper, internal package management or build system
